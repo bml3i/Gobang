@@ -1,0 +1,21 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "env": {
+    "VITE_SUPABASE_URL": "@vite_supabase_url",
+    "VITE_SUPABASE_ANON_KEY": "@vite_supabase_anon_key",
+    "VITE_GAME_TABLES_COUNT": "@vite_game_tables_count",
+    "VITE_MOVE_TIMEOUT_SECONDS": "@vite_move_timeout_seconds",
+    "VITE_IDLE_TIMEOUT_MINUTES": "@vite_idle_timeout_minutes",
+    "VITE_START_GAME_TIMEOUT_SECONDS": "@vite_start_game_timeout_seconds"
+  }
+}
