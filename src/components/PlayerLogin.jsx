@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useGame } from '../contexts/GameContext'
 
 const avatars = [
@@ -7,10 +7,18 @@ const avatars = [
 ]
 
 export default function PlayerLogin() {
-  const { dispatch } = useGame()
+  const { state, dispatch } = useGame()
   const [nickname, setNickname] = useState('')
   const [selectedAvatar, setSelectedAvatar] = useState(avatars[0])
   const [error, setError] = useState('')
+  const [showLoginForm, setShowLoginForm] = useState(true)
+
+  // Check if user is already logged in
+  useEffect(() => {
+    if (state.player) {
+      setShowLoginForm(false)
+    }
+  }, [state.player])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -38,6 +46,47 @@ export default function PlayerLogin() {
     }
 
     dispatch({ type: 'SET_PLAYER', payload: player })
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('gobang_player')
+    dispatch({ type: 'SET_PLAYER', payload: null })
+    setShowLoginForm(true)
+  }
+
+  // If user is already logged in, show welcome screen
+  if (state.player && !showLoginForm) {
+    return (
+      <div className="login-container">
+        <div className="login-card">
+          <h1>五子棋在线对战</h1>
+          <div className="welcome-section">
+            <div className="player-info">
+              <div className="player-avatar">{state.player.avatar}</div>
+              <h2>欢迎回来，{state.player.nickname}！</h2>
+              <p>您的信息已保存，可以直接进入游戏大厅</p>
+            </div>
+            <div className="action-buttons">
+               <button 
+                 className="submit-btn"
+                 onClick={() => {
+                   // User is already logged in, this will be handled by App.jsx routing
+                   // The button is just for UI feedback
+                 }}
+               >
+                 进入游戏大厅
+               </button>
+              <button 
+                className="logout-btn"
+                onClick={handleLogout}
+              >
+                切换用户
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
