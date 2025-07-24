@@ -45,6 +45,79 @@ CREATE TRIGGER update_game_tables_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+-- Create server_status table to track server restarts
+CREATE TABLE IF NOT EXISTS server_status (
+  id SERIAL PRIMARY KEY,
+  server_instance_id TEXT NOT NULL UNIQUE,
+  started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_heartbeat TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create function to reset all game tables on server restart
+CREATE OR REPLACE FUNCTION reset_game_tables_on_server_restart()
+RETURNS VOID AS '
+BEGIN
+  -- Reset all game tables to clean state
+  UPDATE game_tables SET
+    player1_id = NULL,
+    player1_nickname = NULL,
+    player1_avatar = NULL,
+    player1_ready = FALSE,
+    player2_id = NULL,
+    player2_nickname = NULL,
+    player2_avatar = NULL,
+    player2_ready = FALSE,
+    game_state = ''waiting'',
+    board = ''[[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null]]''::jsonb,
+    current_player = 1,
+    winner = NULL,
+    last_move_time = NULL,
+    updated_at = NOW();
+  
+END;
+' LANGUAGE plpgsql;
+
+-- Create function to register server instance and cleanup if needed
+CREATE OR REPLACE FUNCTION register_server_instance(instance_id TEXT)
+RETURNS BOOLEAN AS '
+DECLARE
+  existing_instance TEXT;
+  should_reset BOOLEAN := FALSE;
+BEGIN
+  -- Check if this is a new server instance
+  SELECT server_instance_id INTO existing_instance 
+  FROM server_status 
+  WHERE server_instance_id = instance_id;
+  
+  IF existing_instance IS NULL THEN
+    -- New server instance, check if we need to cleanup old instances
+    -- If there are any existing instances, it means server restarted
+    IF EXISTS (SELECT 1 FROM server_status LIMIT 1) THEN
+      should_reset := TRUE;
+      -- Clear old instances
+      DELETE FROM server_status;
+    END IF;
+    
+    -- Register new instance
+    INSERT INTO server_status (server_instance_id) VALUES (instance_id);
+    
+    -- Reset game tables if this is a server restart
+    IF should_reset THEN
+      PERFORM reset_game_tables_on_server_restart();
+    END IF;
+    
+    RETURN should_reset;
+  ELSE
+    -- Update heartbeat for existing instance
+    UPDATE server_status 
+    SET last_heartbeat = NOW() 
+    WHERE server_instance_id = instance_id;
+    
+    RETURN FALSE;
+  END IF;
+END;
+' LANGUAGE plpgsql;
+
 -- Insert initial game tables (8 tables by default)
 INSERT INTO game_tables (table_number) 
 SELECT generate_series(1, 8)

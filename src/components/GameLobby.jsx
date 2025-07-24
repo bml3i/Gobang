@@ -10,7 +10,20 @@ export default function GameLobby() {
 
   // Handle joining a table
   const joinTable = async (tableNumber) => {
-    if (currentTable) return // Already at a table
+    if (currentTable) {
+      alert('您已经在游戏桌中，请先离开当前桌子')
+      return
+    }
+    
+    // Check if player is already at any other table
+    const playerAtTable = tables.find(table => 
+      table.player1_id === player.id || table.player2_id === player.id
+    )
+    
+    if (playerAtTable) {
+      alert(`您已经在游戏桌 ${playerAtTable.table_number} 中，无法同时加入多个桌子`)
+      return
+    }
     
     const table = tables.find(t => t.table_number === tableNumber)
     if (!table) return
@@ -48,6 +61,11 @@ export default function GameLobby() {
       if (error) throw error
       
       dispatch({ type: 'SET_CURRENT_TABLE', payload: tableNumber })
+      
+      // Save current table to localStorage for persistence
+      localStorage.setItem('gobang_current_table', tableNumber.toString())
+      
+      console.log(`Player ${player.nickname} joined table ${tableNumber}`)
     } catch (error) {
       console.error('Error joining table:', error)
       alert('加入游戏桌失败')
@@ -96,6 +114,11 @@ export default function GameLobby() {
       
       dispatch({ type: 'SET_CURRENT_TABLE', payload: null })
       dispatch({ type: 'RESET_GAME' })
+      
+      // Clear current table from localStorage
+      localStorage.removeItem('gobang_current_table')
+      
+      console.log(`Player ${player.nickname} left table ${currentTable}`)
     } catch (error) {
       console.error('Error leaving table:', error)
     }

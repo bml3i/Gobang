@@ -79,11 +79,26 @@ export function GameProvider({ children }) {
     }
   }, [state.player])
 
-  // Initialize tables and reset all player data on app restart
+  // Initialize tables and handle server restart detection
   useEffect(() => {
     const initializeTables = async () => {
       try {
-        console.log('Initializing tables and clearing player data...')
+        console.log('Initializing tables...')
+        
+        // Generate a unique server instance ID for this session
+        const serverInstanceId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        
+        // Register this client instance and check if server restart occurred
+        const { data: resetResult, error: resetError } = await supabase
+          .rpc('register_server_instance', { instance_id: serverInstanceId })
+        
+        if (resetError) {
+          console.error('Error registering server instance:', resetError)
+        } else if (resetResult) {
+          console.log('Server restart detected - game tables have been reset')
+        } else {
+          console.log('Client session registered - no reset needed')
+        }
         
         // Check if tables exist
         const { data: existingTables } = await supabase
@@ -92,7 +107,7 @@ export function GameProvider({ children }) {
           .order('table_number')
 
         if (!existingTables || existingTables.length === 0) {
-          // Create tables if they don't exist
+          // Create tables if they don't exist (this indicates a fresh database)
           const tables = []
           for (let i = 1; i <= gameConfig.tablesCount; i++) {
             tables.push({
@@ -111,29 +126,6 @@ export function GameProvider({ children }) {
           
           await supabase.from('game_tables').insert(tables)
           console.log('Created new tables with clean state')
-        } else {
-          // Tables exist, reset all player data to clean state
-          const resetData = {
-            player1_id: null,
-            player2_id: null,
-            player1_ready: false,
-            player2_ready: false,
-            game_state: 'waiting',
-            board: Array(15).fill(null).map(() => Array(15).fill(null)),
-            current_player: 1,
-            winner: null,
-            last_move_time: null
-          }
-          
-          // Update all tables to reset state
-          for (let i = 1; i <= gameConfig.tablesCount; i++) {
-            await supabase
-              .from('game_tables')
-              .update(resetData)
-              .eq('table_number', i)
-          }
-          
-          console.log('Reset all existing tables to clean state')
         }
 
         // Fetch current tables
@@ -151,6 +143,44 @@ export function GameProvider({ children }) {
 
     initializeTables()
   }, [])
+
+  // Check if player is already at a table and restore state after tables are loaded
+  useEffect(() => {
+    if (!state.player || !state.tables.length) return
+    
+    // Find if player is already at any table
+    const playerTable = state.tables.find(table => 
+      table.player1_id === state.player.id || table.player2_id === state.player.id
+    )
+    
+    if (playerTable && state.currentTable !== playerTable.table_number) {
+      console.log(`Player ${state.player.nickname} found at table ${playerTable.table_number}, restoring state`)
+      dispatch({ type: 'SET_CURRENT_TABLE', payload: playerTable.table_number })
+      
+      // Save current table to localStorage for persistence
+      localStorage.setItem('gobang_current_table', playerTable.table_number.toString())
+    } else if (!playerTable && state.currentTable) {
+      // Player is no longer at any table, clear current table
+      console.log(`Player ${state.player.nickname} is no longer at any table, clearing state`)
+      dispatch({ type: 'SET_CURRENT_TABLE', payload: null })
+      localStorage.removeItem('gobang_current_table')
+    }
+  }, [state.player, state.tables])
+
+  // Load saved current table from localStorage on initialization
+  useEffect(() => {
+    if (!state.player) return
+    
+    const savedTable = localStorage.getItem('gobang_current_table')
+    if (savedTable && !state.currentTable) {
+      const tableNumber = parseInt(savedTable)
+      if (tableNumber && tableNumber >= 1 && tableNumber <= gameConfig.tablesCount) {
+        console.log(`Attempting to restore player to table ${tableNumber}`)
+        // The actual restoration will be handled by the previous useEffect
+        // when tables are loaded and we verify the player is still at that table
+      }
+    }
+  }, [state.player])
 
   // Subscribe to table changes
   useEffect(() => {
