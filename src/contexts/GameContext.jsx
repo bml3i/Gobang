@@ -131,6 +131,38 @@ export function GameProvider({ children }) {
     }
   }, [])
 
+  // Monitor current table state changes
+  useEffect(() => {
+    if (!state.currentTable || !state.tables.length) return
+    
+    const currentTableData = state.tables.find(t => t.table_number === state.currentTable)
+    if (!currentTableData) return
+    
+    console.log('GameContext: Current table data changed:', {
+      tableNumber: state.currentTable,
+      gameState: currentTableData.game_state,
+      player1Ready: currentTableData.player1_ready,
+      player2Ready: currentTableData.player2_ready,
+      bothPlayersPresent: !!(currentTableData.player1_id && currentTableData.player2_id)
+    })
+    
+    // Update game state when current table changes
+    dispatch({ type: 'SET_GAME_STATE', payload: currentTableData.game_state })
+    dispatch({ type: 'SET_BOARD', payload: currentTableData.board })
+    dispatch({ type: 'SET_CURRENT_PLAYER', payload: currentTableData.current_player })
+    dispatch({ type: 'SET_WINNER', payload: currentTableData.winner })
+    dispatch({ type: 'SET_GAME_STARTED', payload: currentTableData.game_state === 'playing' })
+    
+    // Determine if it's my turn
+    if (currentTableData.game_state === 'playing' && state.player) {
+      const isPlayer1 = currentTableData.player1_id === state.player.id
+      const isPlayer2 = currentTableData.player2_id === state.player.id
+      const isMyTurn = (isPlayer1 && currentTableData.current_player === 1) || 
+                       (isPlayer2 && currentTableData.current_player === 2)
+      dispatch({ type: 'SET_IS_MY_TURN', payload: isMyTurn })
+    }
+  }, [state.tables, state.currentTable, state.player])
+
   const value = {
     state,
     dispatch,

@@ -9,6 +9,14 @@ function GameApp() {
   const { state } = useGame()
   const { player, currentTable, tables } = state
   
+  // Debug logging
+  console.log('App state:', { 
+    player: player?.nickname, 
+    currentTable, 
+    tablesCount: tables.length,
+    currentTableData: tables.find(t => t.table_number === currentTable)
+  })
+  
   // Show login if no player
   if (!player) {
     return <PlayerLogin />
@@ -16,6 +24,12 @@ function GameApp() {
   
   // Show game board if in a game
   const currentTableData = tables.find(t => t.table_number === currentTable)
+  console.log('Current table check:', {
+    currentTableData,
+    gameState: currentTableData?.game_state,
+    shouldShowGameBoard: currentTableData && currentTableData.game_state === 'playing'
+  })
+  
   if (currentTableData && currentTableData.game_state === 'playing') {
     return (
       <div className="app">

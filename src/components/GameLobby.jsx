@@ -194,6 +194,8 @@ export default function GameLobby() {
     
     // Start game if both ready
     if (table.player1_ready && table.player2_ready && table.player1_id && table.player2_id) {
+      console.log('Both players ready, starting game for table:', currentTable)
+      
       if (startGameTimer) {
         clearTimeout(startGameTimer)
         setStartGameTimer(null)
@@ -201,13 +203,27 @@ export default function GameLobby() {
       }
       
       // Start the game
-      supabase
-        .from('game_tables')
-        .update({
-          game_state: 'playing',
-          last_move_time: new Date().toISOString()
-        })
-        .eq('table_number', currentTable)
+      const startGame = async () => {
+        try {
+          const { error } = await supabase
+            .from('game_tables')
+            .update({
+              game_state: 'playing',
+              last_move_time: new Date().toISOString()
+            })
+            .eq('table_number', currentTable)
+          
+          if (error) {
+            console.error('Error starting game:', error)
+          } else {
+            console.log('Game started successfully for table:', currentTable)
+          }
+        } catch (error) {
+          console.error('Error starting game:', error)
+        }
+      }
+      
+      startGame()
     }
   }, [tables, currentTable, startGameTimer])
 
