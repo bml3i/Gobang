@@ -1,3 +1,30 @@
+-- ========================================
+-- 清空数据库对象 - 恢复到初始状态
+-- ========================================
+
+-- 删除触发器
+DROP TRIGGER IF EXISTS update_game_tables_updated_at ON game_tables;
+
+-- 删除函数
+DROP FUNCTION IF EXISTS update_updated_at_column();
+DROP FUNCTION IF EXISTS reset_game_tables_on_server_restart();
+DROP FUNCTION IF EXISTS register_server_instance(TEXT);
+
+-- 删除策略
+DROP POLICY IF EXISTS "Allow all operations on game_tables" ON game_tables;
+
+-- 删除索引
+DROP INDEX IF EXISTS idx_game_tables_table_number;
+DROP INDEX IF EXISTS idx_game_tables_game_state;
+
+-- 删除表
+DROP TABLE IF EXISTS game_tables CASCADE;
+DROP TABLE IF EXISTS server_status CASCADE;
+
+-- ========================================
+-- 重新创建数据库对象
+-- ========================================
+
 -- Create game_tables table for storing game state
 CREATE TABLE IF NOT EXISTS game_tables (
   id SERIAL PRIMARY KEY,
@@ -57,22 +84,12 @@ CREATE TABLE IF NOT EXISTS server_status (
 CREATE OR REPLACE FUNCTION reset_game_tables_on_server_restart()
 RETURNS VOID AS '
 BEGIN
-  -- Reset all game tables to clean state
-  UPDATE game_tables SET
-    player1_id = NULL,
-    player1_nickname = NULL,
-    player1_avatar = NULL,
-    player1_ready = FALSE,
-    player2_id = NULL,
-    player2_nickname = NULL,
-    player2_avatar = NULL,
-    player2_ready = FALSE,
-    game_state = ''waiting'',
-    board = ''[[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null]]''::jsonb,
-    current_player = 1,
-    winner = NULL,
-    last_move_time = NULL,
-    updated_at = NOW();
+  -- Delete all existing game tables
+  DELETE FROM game_tables;
+  
+  -- Insert fresh game tables (8 tables by default)
+  INSERT INTO game_tables (table_number) 
+  SELECT generate_series(1, 8);
   
 END;
 ' LANGUAGE plpgsql;
